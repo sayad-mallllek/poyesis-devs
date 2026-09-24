@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 /** Reads and writes URL search params so filters survive reloads and are shareable. */
 export function useSearchParamsState() {
@@ -22,5 +22,6 @@ export function useSearchParamsState() {
     [params, pathname, router],
   );
 
-  return { params, set, get: (key: string) => params.get(key) ?? undefined };
+  const get = useCallback((key: string) => params.get(key) ?? undefined, [params]);
+  return useMemo(() => ({ params, set, get }), [params, set, get]);
 }

@@ -22,6 +22,10 @@ import { buildDays, formatRange, isZoom, shiftDate, weekStart, ZOOMS } from "./t
 const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5];
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+function useTimelineDays(from: string, count: number, workingDays: readonly number[]) {
+  return useMemo(() => buildDays(from, count, workingDays), [from, count, workingDays]);
+}
+
 export function ScheduleView() {
   const can = useCan();
   const { get, set } = useSearchParamsState();
@@ -47,14 +51,8 @@ export function ScheduleView() {
   );
 
   // Placeholder data keeps the previous range on screen; lay the grid out for the data actually shown.
-  const shownFrom = data?.from ?? from;
-  const shownCount = data?.rows[0]?.days.length ?? dayCount;
   const workingDays = data?.workingDays ?? DEFAULT_WORKING_DAYS;
-  const shownWorkingDays = data?.workingDays;
-  const days = useMemo(
-    () => buildDays(shownFrom, shownCount, shownWorkingDays ?? DEFAULT_WORKING_DAYS),
-    [shownFrom, shownCount, shownWorkingDays],
-  );
+  const days = useTimelineDays(data?.from ?? from, data?.rows[0]?.days.length ?? dayCount, workingDays);
   const departments = useMemo(
     () => [...new Set(data?.rows.map((r) => r.user.department).filter((d): d is string => !!d))].sort(),
     [data],

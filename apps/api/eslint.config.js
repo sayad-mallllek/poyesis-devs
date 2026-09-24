@@ -2,7 +2,7 @@ import { config } from "@repo/eslint-config/base";
 
 export default [
   ...config,
-  { ignores: ["dist/**", "src/generated/**"] },
+  { ignores: ["dist/**", ".dist-*/**", "src/generated/**", "storage/**"] },
   {
     languageOptions: {
       parserOptions: {

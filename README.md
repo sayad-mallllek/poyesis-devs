@@ -176,6 +176,10 @@ packages/
 - **Model port** (`AssistantModel`): production uses `ChatOpenAI` pointed at Command Code;
   tests use a scripted fake. You can swap in any OpenAI-compatible provider through configuration.
 
+## Conventions
+
+See [docs/CONVENTIONS.md](docs/CONVENTIONS.md) — patterns for services, ABAC, audit, forms, tabs, AI tools and generative-UI blocks.
+
 ## Testing
 
 ```sh

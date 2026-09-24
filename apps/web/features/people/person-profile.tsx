@@ -98,7 +98,11 @@ export function PersonProfile({ userId }: { userId: string }) {
           <TabsList variant="line" className="mb-4 border-b pb-1">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             {visible.schedule && <TabsTrigger value="schedule">Schedule</TabsTrigger>}
-            {visible.skills && <TabsTrigger value="skills">Skills & ratings</TabsTrigger>}
+            {visible.skills && (
+              <TabsTrigger value="skills">
+                {can("read", "UserSkill", { userId }, "rating") ? "Skills & ratings" : "Skills"}
+              </TabsTrigger>
+            )}
             {visible.notes && <TabsTrigger value="notes">Notes</TabsTrigger>}
           </TabsList>
         </div>
