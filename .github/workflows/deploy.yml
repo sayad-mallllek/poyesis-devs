@@ -57,9 +57,6 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment:
-      name: production
-      url: https://poyesis.dev
     concurrency:
       group: deploy-production
       cancel-in-progress: false
