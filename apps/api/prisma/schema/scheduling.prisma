@@ -1,0 +1,42 @@
+enum TimeOffType {
+  VACATION
+  SICK
+  HOLIDAY
+  OTHER
+}
+
+/// A booking of `hoursPerDay` on every working day of [startDate, endDate].
+model Allocation {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  startDate       DateTime @db.Date
+  endDate         DateTime @db.Date
+  hoursPerDay     Float
+  includeWeekends Boolean  @default(false)
+  tentative       Boolean  @default(false)
+  note            String?
+  createdById     String?
+  createdBy       User?    @relation("AllocationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, startDate, endDate])
+  @@index([projectId, startDate, endDate])
+}
+
+model TimeOff {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      TimeOffType
+  startDate DateTime    @db.Date
+  endDate   DateTime    @db.Date
+  note      String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([userId, startDate, endDate])
+}

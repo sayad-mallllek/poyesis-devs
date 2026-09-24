@@ -1,0 +1,15 @@
+// Multi-file schema: every *.prisma file in this folder is part of one schema.
+// Each file groups one bounded context; cross-file relations are allowed.
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

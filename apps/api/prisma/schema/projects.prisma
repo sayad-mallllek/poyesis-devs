@@ -1,0 +1,190 @@
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectHealth {
+  ON_TRACK
+  AT_RISK
+  OFF_TRACK
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ProjectType {
+  CLIENT
+  INTERNAL
+  RESEARCH
+  MAINTENANCE
+}
+
+enum BillingModel {
+  FIXED_PRICE
+  TIME_AND_MATERIALS
+  RETAINER
+  NON_BILLABLE
+}
+
+enum ProjectMemberRole {
+  LEAD
+  CONTRIBUTOR
+  REVIEWER
+  STAKEHOLDER
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  MISSED
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATING
+  CLOSED
+}
+
+model Project {
+  id              String        @id @default(cuid())
+  code            String        @unique
+  name            String
+  summary         String?
+  /// Markdown. Primary context for AI analysis.
+  description     String?
+  status          ProjectStatus @default(PLANNING)
+  health          ProjectHealth @default(ON_TRACK)
+  priority        Priority      @default(MEDIUM)
+  type            ProjectType   @default(CLIENT)
+  billingModel    BillingModel  @default(TIME_AND_MATERIALS)
+  clientId        String?
+  client          Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  ownerId         String
+  owner           User          @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  startDate       DateTime?     @db.Date
+  targetEndDate   DateTime?     @db.Date
+  actualEndDate   DateTime?     @db.Date
+  budgetAmount    Decimal?      @db.Decimal(14, 2)
+  currency        String        @default("EUR") @db.Char(3)
+  estimatedHours  Float?
+  hourlyRate      Decimal?      @db.Decimal(10, 2)
+  progress        Int           @default(0)
+  color           String        @default("#4f46e5")
+  tags            String[]      @default([])
+  techStack       String[]      @default([])
+  objectives      String?
+  successCriteria String?
+  scope           String?
+  outOfScope      String?
+  assumptions     String?
+  constraints     String?
+  /// `[{ label, url }]` — environments, designs, docs…
+  links           Json          @default("[]")
+  isConfidential  Boolean       @default(false)
+  archivedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  members         ProjectMember[]
+  milestones      Milestone[]
+  risks           ProjectRisk[]
+  statusUpdates   ProjectStatusUpdate[]
+  attachments     ProjectAttachment[]
+  allocations     Allocation[]
+  repositoryLinks RepositoryLink[]
+  sentryLinks     SentryLink[]
+  userNotes       UserNote[]
+
+  @@index([status])
+  @@index([clientId])
+  @@index([ownerId])
+  @@index([targetEndDate])
+}
+
+model ProjectMember {
+  projectId   String
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectRole ProjectMemberRole @default(CONTRIBUTOR)
+  joinedAt    DateTime          @default(now())
+
+  @@id([projectId, userId])
+  @@index([userId])
+}
+
+model Milestone {
+  id          String          @id @default(cuid())
+  projectId   String
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  dueDate     DateTime        @db.Date
+  status      MilestoneStatus @default(PENDING)
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([projectId, dueDate])
+}
+
+model ProjectRisk {
+  id          String     @id @default(cuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  /// 1‥5
+  probability Int
+  /// 1‥5
+  impact      Int
+  status      RiskStatus @default(OPEN)
+  mitigation  String?
+  ownerId     String?
+  owner       User?      @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([projectId, status])
+}
+
+model ProjectStatusUpdate {
+  id        String        @id @default(cuid())
+  projectId String
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  health    ProjectHealth
+  summary   String
+  progress  Int?
+  createdAt DateTime      @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model ProjectAttachment {
+  id            String   @id @default(cuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedById  String
+  uploadedBy    User     @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  /// Key inside the storage backend (never a user-controlled path).
+  storageKey    String   @unique
+  sha256        String
+  /// Plain text extracted at upload time, used as AI context.
+  extractedText String?
+  createdAt     DateTime @default(now())
+
+  @@index([projectId])
+}

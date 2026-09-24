@@ -1,0 +1,40 @@
+/// The workspace is single-tenant: exactly one row, id = "company".
+model Company {
+  id                 String   @id @default("company")
+  name               String
+  legalName          String?
+  website            String?
+  logoUrl            String?
+  timezone           String   @default("Europe/Paris")
+  currency           String   @default("EUR") @db.Char(3)
+  workingHoursPerDay Float    @default(8)
+  /// ISO weekday numbers (0 = Sunday).
+  workingDays        Int[]    @default([1, 2, 3, 4, 5])
+  /// Extra guidance appended to the AI assistant's system prompt.
+  aiInstructions     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?
+  actor      User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String
+  summary    String
+  origin     AuditOrigin @default(WEB)
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+enum AuditOrigin {
+  WEB
+  AI
+  SYSTEM
+}

@@ -1,0 +1,40 @@
+enum ClientStatus {
+  LEAD
+  ACTIVE
+  INACTIVE
+}
+
+model Client {
+  id        String       @id @default(cuid())
+  name      String
+  legalName String?
+  status    ClientStatus @default(ACTIVE)
+  industry  String?
+  website   String?
+  email     String?
+  phone     String?
+  address   String?
+  country   String?
+  vatNumber String?
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  contacts ClientContact[]
+  projects Project[]
+
+  @@index([name])
+}
+
+model ClientContact {
+  id        String  @id @default(cuid())
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  phone     String?
+  position  String?
+  isPrimary Boolean @default(false)
+
+  @@index([clientId])
+}

@@ -1,0 +1,65 @@
+enum SkillCategory {
+  FRONTEND
+  BACKEND
+  MOBILE
+  DEVOPS
+  DATA
+  DESIGN
+  MANAGEMENT
+  SOFT_SKILL
+  OTHER
+}
+
+enum NoteType {
+  REMARK
+  NOTE
+  WARNING
+  KUDOS
+}
+
+model Skill {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  category  SkillCategory @default(OTHER)
+  createdAt DateTime      @default(now())
+
+  users UserSkill[]
+}
+
+model UserSkill {
+  userId            String
+  user              User      @relation("UserSkills", fields: [userId], references: [id], onDelete: Cascade)
+  skillId           String
+  skill             Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  /// Self-assessed level, 1‥5.
+  level             Int
+  yearsOfExperience Float?
+  /// Administrator rating, 1‥5. Restricted by policy.
+  rating            Int?
+  ratingNote        String?
+  ratedById         String?
+  ratedBy           User?     @relation("SkillRatedBy", fields: [ratedById], references: [id], onDelete: SetNull)
+  ratedAt           DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@id([userId, skillId])
+  @@index([skillId])
+}
+
+/// Remarks, notes, warnings and kudos written *about* a person.
+model UserNote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("NoteSubject", fields: [userId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("NoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  type      NoteType
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}

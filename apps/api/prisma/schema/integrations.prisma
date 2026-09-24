@@ -1,0 +1,49 @@
+enum IntegrationProvider {
+  GITHUB
+  SENTRY
+}
+
+/// Workspace-level credentials. `encryptedToken` is AES-256-GCM encrypted
+/// with the application encryption key and never leaves the API.
+model IntegrationCredential {
+  provider       IntegrationProvider @id
+  encryptedToken String
+  tokenHint      String
+  /// Non-secret settings (base URL, organization slug…).
+  config         Json                @default("{}")
+  lastVerifiedAt DateTime?
+  lastError      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model RepositoryLink {
+  id            String   @id @default(cuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner         String
+  name          String
+  defaultBranch String?
+  isPrivate     Boolean?
+  createdById   String?
+  createdBy     User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+
+  @@unique([projectId, owner, name])
+}
+
+model SentryLink {
+  id               String   @id @default(cuid())
+  projectId        String
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organizationSlug String
+  projectSlug      String
+  environment      String?
+  name             String?
+  platform         String?
+  createdById      String?
+  createdBy        User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+
+  @@unique([projectId, organizationSlug, projectSlug])
+}
