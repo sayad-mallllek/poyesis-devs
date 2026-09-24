@@ -128,6 +128,33 @@ The web app only needs `API_URL` (server-side).
 GitHub and Sentry are configured by an administrator in **Settings → Integrations**
 (a GitHub token with `repo` and `actions:read`; a Sentry org token with `project:read` and `event:read`).
 
+## Deployment
+
+Production runs on a Debian VPS behind the host's Caddy (TLS via Let's Encrypt):
+
+| Piece | Where |
+|---|---|
+| Stack | `docker-compose.prod.yml` — `db` (private network only), `api` → `127.0.0.1:4101`, `web` → `127.0.0.1:4100` |
+| Images | `apps/api/Dockerfile` (runs migrations on start, non-root), `apps/web/Dockerfile` (Next.js standalone) |
+| Proxy | `deploy/Caddyfile.poyesis.dev` appended to `/etc/caddy/Caddyfile` (`poyesis.dev`, `www` → apex) |
+| Secrets | `deploy/.env` — **server only**, never committed (template: `deploy/.env.example`) |
+| Location | `/opt/poyesis` on the VPS |
+
+**CI/CD** — [.github/workflows/deploy.yml](.github/workflows/deploy.yml) verifies every push/PR
+(install, type-check, lint, test, build) and deploys `main` with `deploy/deploy.sh`.
+Repository secrets: `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`.
+
+**Manual deploy** (from a machine with SSH access):
+
+```sh
+DEPLOY_HOST=ubuntu@82.26.80.238 deploy/deploy.sh          # sync + rebuild + restart
+DEPLOY_HOST=ubuntu@82.26.80.238 deploy/deploy.sh --env    # also upload deploy/.env
+DEPLOY_HOST=ubuntu@82.26.80.238 deploy/deploy.sh --seed   # also (re)seed the first admin
+```
+
+Operations on the VPS (`cd /opt/poyesis`, `C="docker compose -f docker-compose.prod.yml --env-file deploy/.env"`):
+`$C ps`, `$C logs -f api`, `$C exec db pg_dump -U poyesis poyesis > backup.sql`.
+
 ## Scripts
 
 | Command | What it does |

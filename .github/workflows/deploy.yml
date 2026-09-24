@@ -1,0 +1,79 @@
+# CI/CD for poyesis.dev
+#
+# On every push / PR: install, type-check, lint, test and build.
+# On push to main (or manual dispatch): ship to the VPS with deploy/deploy.sh.
+#
+# Repository secrets required for deployment:
+#   DEPLOY_HOST     e.g. ubuntu@82.26.80.238
+#   DEPLOY_SSH_KEY  private key authorized for that user on the VPS
+#   DEPLOY_KNOWN_HOSTS  output of `ssh-keyscan 82.26.80.238`
+name: CI / Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # prisma.config.ts needs a DSN to load; nothing connects to it in CI.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # The repo uses `nub`, whose lockfile is pnpm v9 format; drive it with pnpm.
+      - name: Prepare pnpm workspace
+        run: |
+          printf 'packages:\n  - "apps/*"\n  - "packages/*"\nonlyBuiltDependencies:\n  - argon2\n  - prisma\n  - "@prisma/engines"\n' > pnpm-workspace.yaml
+          cp nub.lock pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check, lint, test, build
+        run: pnpm exec turbo run check-types lint test build
+
+  deploy:
+    name: Deploy to VPS
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://poyesis.dev
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: deploy/deploy.sh

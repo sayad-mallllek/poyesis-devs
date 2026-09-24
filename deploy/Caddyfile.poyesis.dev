@@ -1,0 +1,18 @@
+# Add these blocks to the host Caddyfile (/etc/caddy/Caddyfile) and reload:
+#   sudo caddy reload --config /etc/caddy/Caddyfile
+#
+# Caddy provisions TLS automatically (Let's Encrypt) once the DNS records for
+# poyesis.dev / www.poyesis.dev point at this host. The app listens on
+# 127.0.0.1:4100 (see docker-compose.prod.yml).
+
+poyesis.dev {
+	log {
+		output stdout
+		format json
+	}
+	reverse_proxy 127.0.0.1:4100
+}
+
+www.poyesis.dev {
+	redir https://poyesis.dev{uri} permanent
+}

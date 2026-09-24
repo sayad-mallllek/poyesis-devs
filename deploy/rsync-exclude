@@ -1,0 +1,16 @@
+# Paths never shipped to the server (secrets live only there, in deploy/.env).
+.git/
+.github/
+.kilo/
+node_modules/
+.turbo/
+dist/
+.dist-*/
+.next/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+apps/api/storage/
+apps/api/src/generated/

@@ -1,0 +1,76 @@
+# Production stack for poyesis.dev.
+#
+# Caddy runs on the host and terminates TLS; this stack only binds its web and
+# API ports to 127.0.0.1 so they never collide with other public services.
+# Ports (chosen to avoid the ones already used on this host):
+#   web -> 127.0.0.1:4100
+#   api -> 127.0.0.1:4101
+#   postgres stays on the private compose network (not published).
+#
+# Usage (from the repository root):
+#   docker compose -f docker-compose.prod.yml --env-file deploy/.env up -d --build
+
+name: poyesis
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    env_file:
+      - deploy/.env
+    volumes:
+      - poyesis-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-poyesis} -d ${POSTGRES_DB:-poyesis}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - poyesis
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - deploy/.env
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      STORAGE_DIR: /data/storage
+    volumes:
+      - poyesis-storage:/data/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4101:4000"
+    networks:
+      - poyesis
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      API_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4100:3000"
+    networks:
+      - poyesis
+
+volumes:
+  poyesis-db:
+  poyesis-storage:
+
+networks:
+  poyesis:
+    driver: bridge

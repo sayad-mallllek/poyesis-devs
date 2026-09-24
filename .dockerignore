@@ -1,0 +1,27 @@
+# Never ship local dependencies or build output into the image context.
+**/node_modules
+**/.turbo
+**/dist
+**/.dist-*
+**/.next
+**/build
+**/coverage
+**/*.tsbuildinfo
+
+# Git and local tooling
+.git
+.gitignore
+.kilo
+.vercel
+
+# Secrets and local env files
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local runtime data
+apps/api/storage
+apps/api/src/generated
+
+# Docs / misc
+**/.DS_Store
