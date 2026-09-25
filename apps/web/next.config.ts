@@ -11,8 +11,9 @@ const nextConfig: NextConfig = {
   devIndicators: { position: "bottom-right" },
   typedRoutes: false,
   experimental: {
-    // Uploads go through the BFF route handler; keep headroom above the API limit.
-    proxyClientMaxBodySize: "30mb",
+    // Uploads go through the BFF route handler; keep headroom above the API
+    // limits (25 MB project files, 100 MB chat attachments).
+    proxyClientMaxBodySize: "110mb",
   },
 };
 

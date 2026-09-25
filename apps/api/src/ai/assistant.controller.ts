@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   Param,
   Patch,
@@ -10,9 +11,14 @@ import {
   Req,
   Res,
   ServiceUnavailableException,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor, type UploadedMultipartFile } from "@nestjs/platform-fastify/multipart";
 import {
   createChatSessionSchema,
+  MAX_CHAT_ATTACHMENT_BYTES,
   renameChatSessionSchema,
   sendChatMessageSchema,
   type ChatStreamEvent,
@@ -25,7 +31,9 @@ import type { Actor } from "../authz/actor.js";
 import { CurrentActor, RequirePermission } from "../authz/decorators.js";
 import { ark } from "../common/validation/ark.pipe.js";
 import { AppConfig } from "../config/app-config.js";
+import { contentDisposition } from "../projects/attachment-files.js";
 import { AssistantService } from "./assistant.service.js";
+import { ChatAttachmentsService } from "./chat-attachments.service.js";
 import { ChatSessionsService } from "./chat-sessions.service.js";
 
 /** Keeps proxies from closing an idle stream while tools run. */
@@ -37,6 +45,7 @@ export class AssistantController {
   constructor(
     private readonly assistant: AssistantService,
     private readonly sessions: ChatSessionsService,
+    private readonly attachments: ChatAttachmentsService,
     private readonly config: AppConfig,
   ) {}
 
@@ -68,6 +77,38 @@ export class AssistantController {
   @HttpCode(204)
   remove(@CurrentActor() actor: Actor, @Param("id") id: string) {
     return this.sessions.remove(actor, id);
+  }
+
+  /**
+   * `multipart/form-data` with a single part named `file`. Files are uploaded
+   * one per request so a large upload never shares memory with others.
+   */
+  @Post("attachments")
+  @UseInterceptors(
+    FileInterceptor("file", { defParamCharset: "utf8", limits: { fileSize: MAX_CHAT_ATTACHMENT_BYTES, files: 1 } }),
+  )
+  upload(@CurrentActor() actor: Actor, @UploadedFile() file: UploadedMultipartFile | undefined) {
+    return this.attachments.upload(
+      actor,
+      file && { fileName: file.originalname, mimeType: file.mimetype, data: file.buffer! },
+    );
+  }
+
+  @Delete("attachments/:attachmentId")
+  @HttpCode(204)
+  removeAttachment(@CurrentActor() actor: Actor, @Param("attachmentId") attachmentId: string) {
+    return this.attachments.removeDraft(actor, attachmentId);
+  }
+
+  @Get("attachments/:attachmentId/download")
+  @Header("Cache-Control", "private, no-store")
+  async download(@CurrentActor() actor: Actor, @Param("attachmentId") attachmentId: string) {
+    const file = await this.attachments.download(actor, attachmentId);
+    return new StreamableFile(file.stream, {
+      type: file.mimeType,
+      disposition: contentDisposition(file.fileName),
+      length: file.sizeBytes,
+    });
   }
 
   @Get("sessions/:id/messages")

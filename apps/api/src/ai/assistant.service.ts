@@ -14,8 +14,10 @@ import { CompanyService } from "../company/company.service.js";
 import { UsersService } from "../users/users.service.js";
 import { ProjectsService } from "../projects/projects.service.js";
 import { errorText, executeTool, runAgentTurn, TurnRecorder, type AgentEvent } from "./agent/agent-runner.js";
+import { describeAttachments } from "./agent/attachment-context.js";
 import { buildHistory } from "./agent/history.js";
 import { buildSystemPrompt, todayIn } from "./agent/system-prompt.js";
+import { ChatAttachmentsService, type ChatAttachmentText } from "./chat-attachments.service.js";
 import { ChatSessionsService, type StoredTurn } from "./chat-sessions.service.js";
 import { AssistantModel } from "./model/assistant-model.js";
 import { parseToolInput } from "./tools/tool-kit.js";
@@ -37,6 +39,7 @@ interface TurnInput {
   input: SendChatMessageInput;
   turns: StoredTurn[];
   pending: PendingInteraction | null;
+  attachments: ChatAttachmentText[];
   company: Company;
   user: UserDetail;
   emit: Emit;
@@ -50,6 +53,7 @@ export class AssistantService {
   constructor(
     private readonly model: AssistantModel,
     private readonly sessions: ChatSessionsService,
+    private readonly attachments: ChatAttachmentsService,
     private readonly registry: ToolRegistry,
     private readonly company: CompanyService,
     private readonly users: UsersService,
@@ -62,7 +66,7 @@ export class AssistantService {
 
   /**
    * Prepares one user turn. Everything that can fail with a client error
-   * (unknown session, stale form) happens here, before any streaming starts;
+   * (unknown session, stale form, foreign attachment) happens here, before any streaming starts;
    * the returned function then runs the turn while emitting events.
    */
   async begin(actor: Actor, sessionId: string, input: SendChatMessageInput) {
@@ -71,10 +75,14 @@ export class AssistantService {
     if (input.formResponse && !pending) {
       throw new ConflictException("This form was already answered or is no longer active");
     }
-    const [company, user] = await Promise.all([this.company.get(actor), this.users.get(actor, actor.principal.id)]);
+    const [company, user, attachments] = await Promise.all([
+      this.company.get(actor),
+      this.users.get(actor, actor.principal.id),
+      this.attachments.claimable(actor, input.attachmentIds ?? []),
+    ]);
 
     return (emit: Emit, signal: AbortSignal) =>
-      this.run({ actor, sessionId, input, turns, pending, company, user, emit, signal });
+      this.run({ actor, sessionId, input, turns, pending, attachments, company, user, emit, signal });
   }
 
   /**
@@ -82,7 +90,18 @@ export class AssistantService {
    * runs the agent loop while streaming, and persists the assistant message —
    * also when the turn fails or the client disconnects.
    */
-  private async run({ actor: requester, sessionId, input, turns, pending, company, user, emit, signal }: TurnInput) {
+  private async run({
+    actor: requester,
+    sessionId,
+    input,
+    turns,
+    pending,
+    attachments,
+    company,
+    user,
+    emit,
+    signal,
+  }: TurnInput) {
     // Changes made by tools are attributed to the user *through* the assistant.
     const actor: Actor = { ...requester, origin: "ai" };
     const today = todayIn(company.timezone);
@@ -97,9 +116,18 @@ export class AssistantService {
     const userParts: MessagePart[] = [];
     if (input.content?.trim()) userParts.push({ type: "text", text: input.content.trim() });
     if (input.formResponse) userParts.push({ type: "formResponse", ...input.formResponse });
+    for (const { id, fileName, mimeType, sizeBytes, hasText } of attachments) {
+      userParts.push({ type: "attachment", attachment: { id, fileName, mimeType, sizeBytes, hasText } });
+    }
 
-    const human = new HumanMessage(await this.describeUserTurn(actor, input, pending, today, recorder));
-    const userMessage = await this.sessions.appendMessage(sessionId, "user", userParts, [human]);
+    const described = await this.describeUserTurn(actor, input, pending, today, recorder);
+    const human = new HumanMessage(
+      attachments.length ? `${described}\n\n${describeAttachments(attachments)}`.trimStart() : described,
+    );
+    const userMessage = await this.sessions.appendMessage(sessionId, "user", userParts, [human], {
+      actor: requester,
+      attachmentIds: attachments.map((a) => a.id),
+    });
     emit({ type: "message.start", userMessage });
     started = true;
     held.forEach(emit);
@@ -129,7 +157,7 @@ export class AssistantService {
       recorder.parts,
       trace.length ? trace : fallbackTrace,
     );
-    const firstUserText = turns.length === 0 ? input.content : undefined;
+    const firstUserText = turns.length === 0 ? input.content?.trim() || attachments[0]?.fileName : undefined;
     emit({ type: "session.updated", session: await this.sessions.touch(actor, sessionId, firstUserText) });
     emit({ type: "message.end", message: assistantMessage });
   }

@@ -33,21 +33,22 @@ model User {
   updatedAt           DateTime   @updatedAt
 
   sessions          AuthSession[]
-  ownedProjects     Project[]           @relation("ProjectOwner")
+  ownedProjects     Project[]             @relation("ProjectOwner")
   memberships       ProjectMember[]
   allocations       Allocation[]
-  allocationsBooked Allocation[]        @relation("AllocationCreatedBy")
+  allocationsBooked Allocation[]          @relation("AllocationCreatedBy")
   timeOff           TimeOff[]
-  skills            UserSkill[]         @relation("UserSkills")
-  ratingsGiven      UserSkill[]         @relation("SkillRatedBy")
-  notesAbout        UserNote[]          @relation("NoteSubject")
-  notesAuthored     UserNote[]          @relation("NoteAuthor")
+  skills            UserSkill[]           @relation("UserSkills")
+  ratingsGiven      UserSkill[]           @relation("SkillRatedBy")
+  notesAbout        UserNote[]            @relation("NoteSubject")
+  notesAuthored     UserNote[]            @relation("NoteAuthor")
   statusUpdates     ProjectStatusUpdate[]
   risksOwned        ProjectRisk[]
   attachments       ProjectAttachment[]
   repositoryLinks   RepositoryLink[]
   sentryLinks       SentryLink[]
   chatSessions      ChatSession[]
+  chatAttachments   ChatAttachment[]
   auditLogs         AuditLog[]
 
   @@index([status, role])
@@ -56,17 +57,17 @@ model User {
 /// Refresh-token session. Tokens are stored as SHA-256 hashes and rotated on
 /// every refresh; reuse of a rotated token revokes the whole family.
 model AuthSession {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  familyId    String
-  tokenHash   String    @unique
-  userAgent   String?
-  ipAddress   String?
-  expiresAt   DateTime
-  rotatedAt   DateTime?
-  revokedAt   DateTime?
-  createdAt   DateTime  @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId  String
+  tokenHash String    @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  rotatedAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([familyId])

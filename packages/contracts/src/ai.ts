@@ -117,6 +117,21 @@ export type UiBlock =
 
 export type UiBlockKind = UiBlock["kind"];
 
+// ── Attachments ───────────────────────────────────────────────────────────
+
+export const MAX_CHAT_ATTACHMENTS = 20;
+export const MAX_CHAT_ATTACHMENT_BYTES = 100 * 1024 * 1024;
+
+/** A file uploaded into the chat; linked to a message once that message is sent. */
+export interface ChatAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  /** Whether text could be extracted for the assistant to read. */
+  hasText: boolean;
+}
+
 // ── Messages ──────────────────────────────────────────────────────────────
 
 export type ToolCallStatus = "running" | "success" | "error";
@@ -134,6 +149,7 @@ export type MessagePart =
       error?: string;
     }
   | { type: "ui"; block: UiBlock }
+  | { type: "attachment"; attachment: ChatAttachment }
   | {
       type: "formResponse";
       formId: string;
@@ -179,11 +195,13 @@ export const sendChatMessageSchema = type({
     values: "Record<string, unknown> | null",
   },
   "context?": chatPageContextSchema,
+  "attachmentIds?": `string[] <= ${MAX_CHAT_ATTACHMENTS}`,
 }).narrow(
   (m, ctx) =>
     !!m.content?.trim() ||
     !!m.formResponse ||
-    ctx.reject({ path: ["content"], expected: "a message or a form response" }),
+    !!m.attachmentIds?.length ||
+    ctx.reject({ path: ["content"], expected: "a message, attachments or a form response" }),
 );
 export type SendChatMessageInput = typeof sendChatMessageSchema.infer;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatMessage, ChatSession, MessagePart, SendChatMessageInput } from "@repo/contracts";
+import type { ChatAttachment, ChatMessage, ChatSession, MessagePart, SendChatMessageInput } from "@repo/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -16,6 +16,8 @@ interface StreamingTurn {
 }
 
 const DRAFT_ID = "streaming";
+
+export type ChatPayload = Omit<SendChatMessageInput, "context" | "attachmentIds"> & { attachments?: ChatAttachment[] };
 
 async function openStream(sessionId: string, body: SendChatMessageInput, signal: AbortSignal) {
   const response = await fetch(`/api/ai/sessions/${sessionId}/messages`, {
@@ -49,7 +51,7 @@ export function useChat(sessionId: string | null) {
 
   const send = useCallback(
     /** `targetId` may differ from the viewed session when a new one was just created. */
-    async (targetId: string, payload: Omit<SendChatMessageInput, "context">) => {
+    async (targetId: string, { attachments = [], ...payload }: ChatPayload) => {
       if (abortRef.current) return;
       const sessionId = targetId;
       const controller = new AbortController();
@@ -58,13 +60,15 @@ export function useChat(sessionId: string | null) {
       const parts: MessagePart[] = [];
       if (payload.content) parts.push({ type: "text", text: payload.content });
       if (payload.formResponse) parts.push({ type: "formResponse", ...payload.formResponse });
+      for (const attachment of attachments) parts.push({ type: "attachment", attachment });
       let user: ChatMessage = { id: `${DRAFT_ID}-user`, sessionId, role: "user", parts, createdAt: new Date().toISOString() };
       setTurn({ sessionId, user, parts: [] });
 
       const toolNames = new Map<string, string>();
       let changedData = false;
       try {
-        const stream = await openStream(sessionId, { ...payload, context }, controller.signal);
+        const attachmentIds = attachments.length ? attachments.map((a) => a.id) : undefined;
+        const stream = await openStream(sessionId, { ...payload, attachmentIds, context }, controller.signal);
         for await (const event of readEventStream(stream)) {
           switch (event.type) {
             case "message.start":

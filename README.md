@@ -157,14 +157,11 @@ the data volume) or `ENCRYPTION_KEY` (encrypts stored integration tokens) withou
 type-check, lint, test, build) and deploys `main` with `deploy/deploy.sh --env`.
 Repository secrets: `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_ENV`.
 
-Run the same pipeline locally with [act](https://github.com/nektos/act) (Docker required):
+Run the same pipeline locally with [act](https://github.com/nektos/act) (Docker required). It reads
+the four secrets from `./.secrets` — a git-ignored dotenv file (multi-line values double-quoted with `\n`):
 
 ```sh
-act push -W .github/workflows/deploy.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest \
-  -s DEPLOY_HOST=ubuntu@82.26.80.238 \
-  -s DEPLOY_SSH_KEY="$(cat ~/.ssh/poyesis_deploy)" \
-  -s DEPLOY_KNOWN_HOSTS="$(ssh-keyscan 82.26.80.238 2>/dev/null)" \
-  -s DEPLOY_ENV="$(cat deploy/.env)"
+act push -W .github/workflows/deploy.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest
 ```
 
 Or deploy directly, skipping verification:

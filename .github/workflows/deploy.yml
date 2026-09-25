@@ -9,12 +9,9 @@
 #   DEPLOY_KNOWN_HOSTS  output of `ssh-keyscan 82.26.80.238`
 #   DEPLOY_ENV          full contents of deploy/.env (template: deploy/.env.example)
 #
-# Run locally with act (same jobs, secrets from local files):
-#   act push -W .github/workflows/deploy.yml \
-#     -s DEPLOY_HOST=ubuntu@82.26.80.238 \
-#     -s DEPLOY_SSH_KEY="$(cat ~/.ssh/poyesis_deploy)" \
-#     -s DEPLOY_KNOWN_HOSTS="$(ssh-keyscan 82.26.80.238 2>/dev/null)" \
-#     -s DEPLOY_ENV="$(cat deploy/.env)"
+# Run locally with act — secrets are read from ./.secrets (git-ignored, dotenv
+# format, same four names):
+#   act push -W .github/workflows/deploy.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest
 name: CI / Deploy
 
 on:

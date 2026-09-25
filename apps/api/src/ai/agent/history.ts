@@ -1,15 +1,19 @@
 import {
   AIMessage,
+  HumanMessage,
   mapChatMessagesToStoredMessages,
   mapStoredMessagesToChatMessages,
   ToolMessage,
   type BaseMessage,
   type StoredMessage,
 } from "@langchain/core/messages";
+import { omitAttachmentBodies } from "./attachment-context.js";
 
 /** Tool results older than the most recent turns are trimmed to save context. */
 const RECENT_TURNS_KEPT_VERBATIM = 3;
 const TRIMMED_TOOL_RESULT_CHARS = 1_500;
+/** Attachment contents are large; only the previous turn's are replayed. */
+const TURNS_WITH_ATTACHMENTS_KEPT = 1;
 
 export const serializeTrace = (messages: BaseMessage[]) => mapChatMessagesToStoredMessages(messages);
 
@@ -47,11 +51,18 @@ export function repairToolPairs(messages: BaseMessage[]): BaseMessage[] {
   return repaired;
 }
 
-/** Flattens stored turns into model messages, trimming bulky old tool output. */
+const withoutAttachmentBodies = (m: BaseMessage) =>
+  m instanceof HumanMessage && typeof m.content === "string" && m.content.includes("<attachment ")
+    ? new HumanMessage(omitAttachmentBodies(m.content))
+    : m;
+
+/** Flattens stored turns into model messages, trimming bulky old tool output and attachments. */
 export function buildHistory(turnTraces: BaseMessage[][]): BaseMessage[] {
   const cutoff = turnTraces.length - RECENT_TURNS_KEPT_VERBATIM * 2;
-  const messages = turnTraces.flatMap((trace, index) =>
-    index >= cutoff
+  const attachmentCutoff = turnTraces.length - TURNS_WITH_ATTACHMENTS_KEPT * 2;
+  const messages = turnTraces.flatMap((raw, index) => {
+    const trace = index >= attachmentCutoff ? raw : raw.map(withoutAttachmentBodies);
+    return index >= cutoff
       ? trace
       : trace.map((m) =>
           m instanceof ToolMessage && typeof m.content === "string" && m.content.length > TRIMMED_TOOL_RESULT_CHARS
@@ -60,7 +71,7 @@ export function buildHistory(turnTraces: BaseMessage[][]): BaseMessage[] {
                 content: `${m.content.slice(0, TRIMMED_TOOL_RESULT_CHARS)}… [older result trimmed]`,
               })
             : m,
-        ),
-  );
+        );
+  });
   return repairToolPairs(messages);
 }

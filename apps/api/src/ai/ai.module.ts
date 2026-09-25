@@ -4,10 +4,12 @@ import { DashboardModule } from "../dashboard/dashboard.module.js";
 import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { PeopleModule } from "../people/people.module.js";
 import { ProjectsModule } from "../projects/projects.module.js";
+import { StorageModule } from "../storage/storage.module.js";
 import { SchedulingModule } from "../scheduling/scheduling.module.js";
 import { UsersModule } from "../users/users.module.js";
 import { AssistantController } from "./assistant.controller.js";
 import { AssistantService } from "./assistant.service.js";
+import { ChatAttachmentsService } from "./chat-attachments.service.js";
 import { ChatSessionsService } from "./chat-sessions.service.js";
 import { AssistantModel } from "./model/assistant-model.js";
 import { CommandCodeModel } from "./model/command-code.model.js";
@@ -22,10 +24,12 @@ import { ToolRegistry } from "./tools/tool-registry.service.js";
     PeopleModule,
     IntegrationsModule,
     DashboardModule,
+    StorageModule,
   ],
   controllers: [AssistantController],
   providers: [
     AssistantService,
+    ChatAttachmentsService,
     ChatSessionsService,
     ToolRegistry,
     { provide: AssistantModel, useClass: CommandCodeModel },

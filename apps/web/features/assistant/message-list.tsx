@@ -5,6 +5,7 @@ import { CheckCircle2, CircleAlert, ClipboardCheck, Sparkles } from "lucide-reac
 import { useEffect, useMemo, useRef } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { SentAttachmentChip } from "./attachment-chip";
 import { UiBlockView } from "./blocks/ui-block";
 import type { BlockAnswer, RespondToBlock } from "./blocks/types";
 import { Markdown } from "./markdown";
@@ -85,8 +86,18 @@ function AssistantMessage({
 }
 
 function UserMessage({ message }: { message: ChatMessage }) {
+  const attachments = message.parts.flatMap((p) => (p.type === "attachment" ? [p.attachment] : []));
   return (
     <div className="flex flex-col items-end gap-1.5">
+      {attachments.length > 0 && (
+        <ul className="flex max-w-[85%] flex-wrap justify-end gap-1.5" aria-label="Attachments">
+          {attachments.map((attachment) => (
+            <li key={attachment.id} className="min-w-0">
+              <SentAttachmentChip attachment={attachment} />
+            </li>
+          ))}
+        </ul>
+      )}
       {message.parts.map((part, i) =>
         part.type === "text" ? (
           <div key={i} className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-sm whitespace-pre-wrap text-primary-foreground">

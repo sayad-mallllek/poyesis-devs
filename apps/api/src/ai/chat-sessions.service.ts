@@ -7,6 +7,7 @@ import { notFound } from "../common/http/errors.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { deserializeTrace, serializeTrace } from "./agent/history.js";
+import { ChatAttachmentsService } from "./chat-attachments.service.js";
 
 export const DEFAULT_SESSION_TITLE = "New conversation";
 /** How many past messages are replayed to the model. */
@@ -21,7 +22,9 @@ export interface StoredTurn {
 
 const previewOf = (parts: MessagePart[]) => {
   const text = parts.find((p) => p.type === "text")?.text ?? null;
-  return text ? text.replace(/\s+/g, " ").trim().slice(0, 140) : null;
+  if (text) return text.replace(/\s+/g, " ").trim().slice(0, 140);
+  const attachment = parts.find((p) => p.type === "attachment")?.attachment;
+  return attachment ? `Attached ${attachment.fileName}` : null;
 };
 
 const withLastMessage = {
@@ -51,6 +54,7 @@ export class ChatSessionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authz: AuthzService,
+    private readonly attachments: ChatAttachmentsService,
   ) {}
 
   async list(actor: Actor): Promise<ChatSession[]> {
@@ -77,7 +81,10 @@ export class ChatSessionsService {
 
   async remove(actor: Actor, id: string): Promise<void> {
     await this.owned(actor, id, "delete");
+    const keys = await this.attachments.keysOfSession(id);
     await this.prisma.chatSession.delete({ where: { id } });
+    // After commit: an orphaned blob is harmless, a row pointing at nothing is not.
+    await this.attachments.deleteObjects(keys);
   }
 
   async messages(actor: Actor, id: string): Promise<ChatMessage[]> {
@@ -102,14 +109,19 @@ export class ChatSessionsService {
     role: ChatMessage["role"],
     parts: MessagePart[],
     trace: BaseMessage[],
+    claim?: { actor: Actor; attachmentIds: string[] },
   ): Promise<ChatMessage> {
-    const row = await this.prisma.chatMessage.create({
-      data: {
-        sessionId,
-        role: role === "user" ? "USER" : "ASSISTANT",
-        parts: parts as unknown as Prisma.InputJsonValue,
-        trace: serializeTrace(trace) as unknown as Prisma.InputJsonValue,
-      },
+    const row = await this.prisma.$transaction(async (tx) => {
+      const message = await tx.chatMessage.create({
+        data: {
+          sessionId,
+          role: role === "user" ? "USER" : "ASSISTANT",
+          parts: parts as unknown as Prisma.InputJsonValue,
+          trace: serializeTrace(trace) as unknown as Prisma.InputJsonValue,
+        },
+      });
+      if (claim) await this.attachments.attach(tx, claim.actor, claim.attachmentIds, message.id);
+      return message;
     });
     return toMessage(row);
   }

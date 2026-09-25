@@ -14,7 +14,7 @@ import { Composer } from "./composer";
 import { MessageList } from "./message-list";
 import { SessionList } from "./session-list";
 import { Suggestions } from "./suggestions";
-import { useChat } from "./use-chat";
+import { useChat, type ChatPayload } from "./use-chat";
 import { usePageContext } from "./use-page-context";
 
 function IconButton({ label, onClick, children }: { label: string; onClick?: () => void; children: React.ReactNode }) {
@@ -50,7 +50,7 @@ export function AssistantPanel({ layout, onClose }: { layout: "dock" | "wide"; o
   const title = sessions.data?.find((s) => s.id === sessionId)?.title ?? "New conversation";
   const disabled = status.data?.enabled === false;
 
-  const send = async (payload: Parameters<typeof chat.send>[1]) => {
+  const send = async (payload: ChatPayload) => {
     const id = sessionId ?? (await create.mutateAsync()).id;
     setActiveSession(id);
     await chat.send(id, payload);
@@ -78,7 +78,7 @@ export function AssistantPanel({ layout, onClose }: { layout: "dock" | "wide"; o
           isStreaming={chat.isStreaming}
           disabled={disabled}
           onStop={chat.stop}
-          onSend={(content) => void send({ content })}
+          onSend={(content, attachments) => void send({ content: content || undefined, attachments })}
         />
       </div>
     </div>

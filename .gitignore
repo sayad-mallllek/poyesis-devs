@@ -11,7 +11,10 @@ node_modules
 .env.development.local
 .env.test.local
 .env.production.local
+.env.server
 deploy/.env
+# act secrets (deploy credentials + production env)
+.secrets
 
 # Testing
 coverage

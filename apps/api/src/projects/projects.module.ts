@@ -38,6 +38,6 @@ const services = [
     AttachmentsController,
   ],
   providers: [...services, TextExtractorService],
-  exports: services,
+  exports: [...services, TextExtractorService],
 })
 export class ProjectsModule {}
