@@ -134,25 +134,48 @@ Production runs on a Debian VPS behind the host's Caddy (TLS via Let's Encrypt):
 
 | Piece | Where |
 |---|---|
-| Stack | `docker-compose.prod.yml` — `db` (private network only), `api` → `127.0.0.1:4101`, `web` → `127.0.0.1:4100` |
-| Images | `apps/api/Dockerfile` (runs migrations on start, non-root), `apps/web/Dockerfile` (Next.js standalone) |
+| Stack | `docker-compose.prod.yml` — `db` (private network only), `api` and `web` published on `127.0.0.1` |
+| Images | `apps/api/Dockerfile` (runs migrations on start, non-root, healthcheck), `apps/web/Dockerfile` (Next.js standalone) |
 | Proxy | `deploy/Caddyfile.poyesis.dev` appended to `/etc/caddy/Caddyfile` (`poyesis.dev`, `www` → apex) |
-| Secrets | `deploy/.env` — **server only**, never committed (template: `deploy/.env.example`) |
 | Location | `/opt/poyesis` on the VPS |
 
-**CI/CD** — [.github/workflows/deploy.yml](.github/workflows/deploy.yml) verifies every push/PR
-(install, type-check, lint, test, build) and deploys `main` with `deploy/deploy.sh`.
-Repository secrets: `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`.
+### Configuration (`deploy/.env`)
 
-**Manual deploy** (from a machine with SSH access):
+One file, never committed; template in [deploy/.env.example](deploy/.env.example). It holds only real
+settings and secrets: host ports (`WEB_HOST_PORT=4100`, `API_HOST_PORT=4101`), Postgres
+credentials, JWT/encryption secrets, AI and seed settings. Container-internal values
+(`NODE_ENV`, `PORT`, `STORAGE_DIR`) and `DATABASE_URL` (derived from the `POSTGRES_*` values) are
+defined in the compose file, and the Postgres container only receives its own `POSTGRES_*` variables.
+
+The deploy pipeline renders the file from the `DEPLOY_ENV` secret and uploads it on every run, so
+the server's configuration always matches the pipeline. Don't rotate `POSTGRES_PASSWORD` (baked into
+the data volume) or `ENCRYPTION_KEY` (encrypts stored integration tokens) without a migration plan.
+
+### CI/CD
+
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml) verifies every push/PR (install,
+type-check, lint, test, build) and deploys `main` with `deploy/deploy.sh --env`.
+Repository secrets: `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_ENV`.
+
+Run the same pipeline locally with [act](https://github.com/nektos/act) (Docker required):
 
 ```sh
-DEPLOY_HOST=ubuntu@82.26.80.238 deploy/deploy.sh          # sync + rebuild + restart
-DEPLOY_HOST=ubuntu@82.26.80.238 deploy/deploy.sh --env    # also upload deploy/.env
+act push -W .github/workflows/deploy.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest \
+  -s DEPLOY_HOST=ubuntu@82.26.80.238 \
+  -s DEPLOY_SSH_KEY="$(cat ~/.ssh/poyesis_deploy)" \
+  -s DEPLOY_KNOWN_HOSTS="$(ssh-keyscan 82.26.80.238 2>/dev/null)" \
+  -s DEPLOY_ENV="$(cat deploy/.env)"
+```
+
+Or deploy directly, skipping verification:
+
+```sh
+DEPLOY_HOST=ubuntu@82.26.80.238 deploy/deploy.sh --env    # sync, upload deploy/.env, rebuild, health-check
 DEPLOY_HOST=ubuntu@82.26.80.238 deploy/deploy.sh --seed   # also (re)seed the first admin
 ```
 
-Operations on the VPS (`cd /opt/poyesis`, `C="docker compose -f docker-compose.prod.yml --env-file deploy/.env"`):
+The script fails on any build error or unhealthy container. Operations on the VPS
+(`cd /opt/poyesis`, `C="docker compose -f docker-compose.prod.yml --env-file deploy/.env"`):
 `$C ps`, `$C logs -f api`, `$C exec db pg_dump -U poyesis poyesis > backup.sql`.
 
 ## Scripts

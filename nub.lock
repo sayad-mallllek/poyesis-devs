@@ -63,7 +63,7 @@ importers:
         specifier: 7.10.0
         version: 7.10.0(@types/react@19.2.18)(@types/react-dom@19.2.5(@types/react@19.2.18))(prisma@7.10.0(typescript@7.0.2))(react@19.2.8)(react-dom@19.2.8(react@19.2.8))(typescript@7.0.2)
       '@repo/contracts':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../../packages/contracts
       argon2:
         specifier: 0.45.1
@@ -109,10 +109,10 @@ importers:
         specifier: 12.1.0
         version: 12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.0(@nestjs/common@12.1.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
       '@repo/eslint-config':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../../packages/eslint-config
       '@repo/typescript-config':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../../packages/typescript-config
       '@types/node':
         specifier: 26.6.2
@@ -145,7 +145,7 @@ importers:
         specifier: 5.9.1
         version: 5.9.1(@sinclair/typebox@0.34.52)(arktype@2.2.3)(react-hook-form@7.88.0(react@19.2.8))
       '@repo/contracts':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../../packages/contracts
       '@tanstack/react-query':
         specifier: 5.103.2
@@ -218,10 +218,10 @@ importers:
         version: 5.0.15(@types/react@19.2.18)(react@19.2.8)
     devDependencies:
       '@repo/eslint-config':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../../packages/eslint-config
       '@repo/typescript-config':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../../packages/typescript-config
       '@tailwindcss/postcss':
         specifier: 4.3.3
@@ -255,10 +255,10 @@ importers:
         version: 2.2.3
     devDependencies:
       '@repo/eslint-config':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../eslint-config
       '@repo/typescript-config':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../typescript-config
       eslint:
         specifier: 10.9.1

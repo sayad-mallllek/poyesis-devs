@@ -36,13 +36,19 @@ if $upload_env; then
 fi
 
 echo "→ Building and starting containers"
-ssh "$HOST" "cd '$DIR' && test -f deploy/.env || { echo 'deploy/.env missing on server (use --env)'; exit 1; }
+# `set -e` on the remote side: a failed build or unhealthy container must fail the deploy.
+ssh "$HOST" "set -euo pipefail; cd '$DIR'
+  test -f deploy/.env || { echo 'deploy/.env missing on server (use --env)' >&2; exit 1; }
+  $COMPOSE config --quiet
   $COMPOSE up -d --build --remove-orphans --wait --wait-timeout 300
   docker image prune -f >/dev/null"
 
 if $seed; then
   echo "→ Seeding the first administrator"
-  ssh "$HOST" "cd '$DIR' && $COMPOSE exec -T api node dist/database/seed.js"
+  ssh "$HOST" "set -euo pipefail; cd '$DIR' && $COMPOSE exec -T api node dist/database/seed.js"
 fi
 
-echo "✓ Deployed. Health: $(ssh "$HOST" "curl -fsS http://127.0.0.1:4101/v1/health" || echo unavailable)"
+echo "→ Checking health"
+ssh "$HOST" "cd '$DIR' && port=\$(grep -E '^API_HOST_PORT=' deploy/.env | cut -d= -f2); curl -fsS --retry 5 --retry-delay 2 --retry-all-errors http://127.0.0.1:\${port:-4101}/v1/health"
+echo
+echo "✓ Deployed"

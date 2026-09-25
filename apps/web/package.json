@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "5.9.1",
-    "@repo/contracts": "*",
+    "@repo/contracts": "workspace:*",
     "@tanstack/react-query": "5.103.2",
     "arktype": "2.2.3",
     "class-variance-authority": "0.7.1",
@@ -38,8 +38,8 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
-    "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "26.6.2",
     "@types/react": "19.2.18",

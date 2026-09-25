@@ -4,9 +4,17 @@
 # On push to main (or manual dispatch): ship to the VPS with deploy/deploy.sh.
 #
 # Repository secrets required for deployment:
-#   DEPLOY_HOST     e.g. ubuntu@82.26.80.238
-#   DEPLOY_SSH_KEY  private key authorized for that user on the VPS
+#   DEPLOY_HOST         e.g. ubuntu@82.26.80.238
+#   DEPLOY_SSH_KEY      private key authorized for that user on the VPS
 #   DEPLOY_KNOWN_HOSTS  output of `ssh-keyscan 82.26.80.238`
+#   DEPLOY_ENV          full contents of deploy/.env (template: deploy/.env.example)
+#
+# Run locally with act (same jobs, secrets from local files):
+#   act push -W .github/workflows/deploy.yml \
+#     -s DEPLOY_HOST=ubuntu@82.26.80.238 \
+#     -s DEPLOY_SSH_KEY="$(cat ~/.ssh/poyesis_deploy)" \
+#     -s DEPLOY_KNOWN_HOSTS="$(ssh-keyscan 82.26.80.238 2>/dev/null)" \
+#     -s DEPLOY_ENV="$(cat deploy/.env)"
 name: CI / Deploy
 
 on:
@@ -44,11 +52,15 @@ jobs:
         run: |
           printf 'packages:\n  - "apps/*"\n  - "packages/*"\nonlyBuiltDependencies:\n  - argon2\n  - prisma\n  - "@prisma/engines"\n' > pnpm-workspace.yaml
           cp nub.lock pnpm-lock.yaml
+          # Turbo resolves the declared package manager; declare pnpm for this runner.
+          node -e 'const f="package.json",p=JSON.parse(require("fs").readFileSync(f));delete p.devEngines;p.packageManager="pnpm@10.30.2";require("fs").writeFileSync(f,JSON.stringify(p,null,2))'
 
       - name: Install
         run: pnpm install --frozen-lockfile
 
       - name: Type-check, lint, test, build
+        env:
+          TURBO_TELEMETRY_DISABLED: "1"
         run: pnpm exec turbo run check-types lint test build
 
   deploy:
@@ -63,14 +75,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install tools
+        run: command -v rsync >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq rsync openssh-client)
+
       - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # The server's configuration always comes from the DEPLOY_ENV secret.
+      - name: Render deploy/.env
+        env:
+          DEPLOY_ENV: ${{ secrets.DEPLOY_ENV }}
+        run: |
+          test -n "$DEPLOY_ENV" || { echo "::error::DEPLOY_ENV secret is empty"; exit 1; }
+          umask 077
+          printf '%s\n' "$DEPLOY_ENV" > deploy/.env
 
       - name: Deploy
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-        run: deploy/deploy.sh
+        run: deploy/deploy.sh --env
